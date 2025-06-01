@@ -129,6 +129,12 @@ class StravaSource(DataSource):
             data["start_date_local"].replace("Z", "+00:00")
         )
         
+        # Handle latlng fields - convert empty lists to None, and lists with 2 elements to tuples
+        def convert_latlng(latlng_data):
+            if not latlng_data or len(latlng_data) != 2:
+                return None
+            return tuple(latlng_data)
+        
         return StravaActivity(
             timestamp=start_date,
             activity_id=data["id"],
@@ -138,8 +144,8 @@ class StravaSource(DataSource):
             moving_time=data.get("moving_time", 0),
             elapsed_time=data.get("elapsed_time", 0),
             total_elevation_gain=data.get("total_elevation_gain", 0.0),
-            start_latlng=data.get("start_latlng"),
-            end_latlng=data.get("end_latlng"),
+            start_latlng=convert_latlng(data.get("start_latlng")),
+            end_latlng=convert_latlng(data.get("end_latlng")),
             average_speed=data.get("average_speed"),
             max_speed=data.get("max_speed"),
             average_heartrate=data.get("average_heartrate"),

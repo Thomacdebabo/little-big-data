@@ -288,6 +288,36 @@ async def heatmap_visualization(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/visualizations/weekly-running-stats", response_class=HTMLResponse)
+async def weekly_running_stats_visualization(
+    source: Optional[str] = Query(None),
+    data_type: Optional[str] = Query(None),
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None)
+):
+    """Generate weekly running statistics visualization showing average pace and distance."""
+    try:
+        # Parse dates
+        start_dt = datetime.fromisoformat(start_date) if start_date else None
+        end_dt = datetime.fromisoformat(end_date) if end_date else None
+        
+        # Load data
+        data_points = await storage.load(
+            source=source,
+            data_type=data_type,
+            start_date=start_dt,
+            end_date=end_dt
+        )
+        
+        # Create visualization
+        fig = visualizer.create_weekly_running_stats(data_points)
+        
+        return HTMLResponse(visualizer.to_html(fig))
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.delete("/data")
 async def delete_data(
     source: Optional[str] = Query(None),
