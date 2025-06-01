@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Little Big Data</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 3rem;
+        }
+        
+        .header h1 {
+            font-size: 3rem;
+            margin-bottom: 0.5rem;
+            font-weight: 300;
+        }
+        
+        .header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+        
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-bottom: 3rem;
+        }
+        
+        .card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 2rem;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+        }
+        
+        .card h3 {
+            color: #4a5568;
+            margin-bottom: 1rem;
+            font-size: 1.5rem;
+        }
+        
+        .card p {
+            color: #666;
+            margin-bottom: 1.5rem;
+        }
+        
+        .links {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        
+        .links a {
+            color: #667eea;
+            text-decoration: none;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #e2e8f0;
+            transition: color 0.3s ease;
+        }
+        
+        .links a:hover {
+            color: #764ba2;
+        }
+        
+        .links a:last-child {
+            border-bottom: none;
+        }
+        
+        .status {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 2rem;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        
+        .status h3 {
+            color: #4a5568;
+            margin-bottom: 1rem;
+        }
+        
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+        
+        .status-item {
+            text-align: center;
+            padding: 1rem;
+            background: #f7fafc;
+            border-radius: 8px;
+        }
+        
+        .status-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .status-label {
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        .btn {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            text-decoration: none;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+            margin-top: 1rem;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Little Big Data</h1>
+            <p>Personal data aggregation and visualization framework</p>
+        </div>
+        
+        <div class="cards">
+            <div class="card">
+                <h3>📊 Visualizations</h3>
+                <p>Interactive charts and dashboards for your personal data</p>
+                <div class="links">
+                    <a href="/visualizations/timeline">Timeline View</a>
+                    <a href="/visualizations/dashboard">Dashboard</a>
+                    <a href="/visualizations/heatmap">Activity Heatmap</a>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h3>🔗 Data Sources</h3>
+                <p>Connect and fetch data from various services</p>
+                <div class="links">
+                    <a href="/data/sources">Available Sources</a>
+                    <a href="/docs#/default/fetch_strava_data_data_strava_fetch_post">Fetch Strava Data</a>
+                    <a href="/auth/strava/url?client_id=YOUR_CLIENT_ID">Strava OAuth</a>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h3>🗄️ Data Management</h3>
+                <p>View, filter, and manage your stored data</p>
+                <div class="links">
+                    <a href="/data/summary">Data Summary</a>
+                    <a href="/data">Browse Data</a>
+                    <a href="/docs">API Documentation</a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="status">
+            <h3>System Status</h3>
+            <div class="status-grid">
+                <div class="status-item">
+                    <div class="status-value" id="data-count">-</div>
+                    <div class="status-label">Data Points</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-value" id="sources-count">-</div>
+                    <div class="status-label">Sources</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-value" id="health-status">-</div>
+                    <div class="status-label">System</div>
+                </div>
+            </div>
+            <a href="/docs" class="btn">Explore API</a>
+        </div>
+    </div>
+    
+    <script>
+        // Fetch system status
+        async function updateStatus() {
+            try {
+                // Health check
+                const healthResponse = await fetch('/health');
+                const healthData = await healthResponse.json();
+                document.getElementById('health-status').textContent = 
+                    healthData.status === 'healthy' ? '✅' : '❌';
+                
+                // Data summary
+                const summaryResponse = await fetch('/data/summary');
+                const summaryData = await summaryResponse.json();
+                document.getElementById('data-count').textContent = summaryData.total_points;
+                document.getElementById('sources-count').textContent = 
+                    Object.keys(summaryData.sources).length;
+                
+            } catch (error) {
+                console.error('Failed to fetch status:', error);
+                document.getElementById('health-status').textContent = '❌';
+            }
+        }
+        
+        // Update status on page load
+        updateStatus();
+        
+        // Update status every 30 seconds
+        setInterval(updateStatus, 30000);
+    </script>
+</body>
+</html> 
