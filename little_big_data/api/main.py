@@ -14,6 +14,7 @@ from pydantic import BaseModel
 from ..core.base import DataPoint
 from ..storage.json_storage import JsonStorage
 from ..sources.strava import StravaSource
+from ..sources.zit import ZitSource
 from ..visualization.plotly_viz import PlotlyVisualizer
 from ..models.strava import StravaActivity
 
@@ -41,6 +42,12 @@ class StravaFetchRequest(BaseModel):
     refresh_token: Optional[str] = None
 
 
+class ZitFetchRequest(BaseModel):
+    days_back: Optional[int] = 30
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+
+
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
     """Home page with navigation."""
@@ -62,6 +69,12 @@ async def list_sources():
                 "name": "strava",
                 "description": "Strava fitness activities",
                 "data_types": ["activity"],
+                "status": "available"
+            },
+            {
+                "name": "zit",
+                "description": "Time tracking projects and subtasks",
+                "data_types": ["project", "subtask"],
                 "status": "available"
             }
         ]
@@ -198,6 +211,100 @@ async def fetch_strava_data(request: StravaFetchRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/data/zit/fetch")
+async def fetch_zit_data(request: ZitFetchRequest):
+    """Fetch data from Zit time tracking."""
+    try:
+        # Initialize Zit source
+        zit = ZitSource()
+        
+        # Authenticate (check if .zit directory exists)
+        if not await zit.authenticate():
+            raise HTTPException(status_code=404, detail="Zit data directory not found. Make sure you have used zit to track time.")
+        
+        # Parse date range
+        if request.start_date and request.end_date:
+            start_date = datetime.fromisoformat(request.start_date)
+            end_date = datetime.fromisoformat(request.end_date)
+        else:
+            end_date = datetime.now()
+            start_date = end_date - timedelta(days=request.days_back) if request.days_back else None
+        
+        # Fetch data
+        data_points = await zit.fetch_data(start_date=start_date, end_date=end_date)
+        
+        # Save to storage
+        await storage.save(data_points)
+        
+        return {
+            "success": True,
+            "message": f"Fetched and saved {len(data_points)} zit events",
+            "count": len(data_points),
+            "projects": len([dp for dp in data_points if dp.data_type == "project"]),
+            "subtasks": len([dp for dp in data_points if dp.data_type == "subtask"])
+        }
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/data/zit/current-task")
+async def get_current_zit_task():
+    """Get the current active zit task."""
+    try:
+        zit = ZitSource()
+        
+        if not await zit.authenticate():
+            raise HTTPException(status_code=404, detail="Zit data directory not found")
+        
+        current_task = await zit.get_current_task()
+        return {
+            "current_task": current_task,
+            "timestamp": datetime.now().isoformat()
+        }
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/data/zit/daily-summary")
+async def get_zit_daily_summary(date: Optional[str] = Query(None, description="Date in YYYY-MM-DD format")):
+    """Get daily summary of zit time tracking."""
+    try:
+        zit = ZitSource()
+        
+        if not await zit.authenticate():
+            raise HTTPException(status_code=404, detail="Zit data directory not found")
+        
+        # Parse date
+        summary_date = datetime.fromisoformat(date) if date else None
+        summary = await zit.get_daily_summary(summary_date)
+        
+        return summary
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/data/zit/available-dates")
+async def get_zit_available_dates():
+    """Get list of dates with zit data."""
+    try:
+        zit = ZitSource()
+        
+        if not await zit.authenticate():
+            raise HTTPException(status_code=404, detail="Zit data directory not found")
+        
+        dates = zit.get_available_dates()
+        return {
+            "dates": dates,
+            "count": len(dates)
+        }
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/visualizations/timeline", response_class=HTMLResponse)
 async def timeline_visualization(
     source: Optional[str] = Query(None),
@@ -311,6 +418,102 @@ async def weekly_running_stats_visualization(
         
         # Create visualization
         fig = visualizer.create_weekly_running_stats(data_points)
+        
+        return HTMLResponse(visualizer.to_html(fig))
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/visualizations/zit/time-tracking", response_class=HTMLResponse)
+async def zit_time_tracking_visualization(
+    start_date: Optional[str] = Query(None, description="Start date (ISO format)"),
+    end_date: Optional[str] = Query(None, description="End date (ISO format)"),
+    days_back: Optional[int] = Query(7, description="Days back from today if no date range specified")
+):
+    """Generate time tracking visualization for zit data."""
+    try:
+        # Parse dates or use default range
+        if start_date and end_date:
+            start_dt = datetime.fromisoformat(start_date)
+            end_dt = datetime.fromisoformat(end_date)
+        else:
+            end_dt = datetime.now()
+            start_dt = end_dt - timedelta(days=days_back)
+        
+        # Load zit data
+        data_points = await storage.load(
+            source="zit",
+            start_date=start_dt,
+            end_date=end_dt
+        )
+        
+        # Create visualization
+        fig = await visualizer.create_zit_time_tracking(data_points)
+        
+        return HTMLResponse(visualizer.to_html(fig))
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/visualizations/zit/daily-breakdown", response_class=HTMLResponse)
+async def zit_daily_breakdown_visualization(
+    date: Optional[str] = Query(None, description="Date in YYYY-MM-DD format")
+):
+    """Generate daily breakdown visualization for zit data."""
+    try:
+        # Parse date or use today
+        if date:
+            target_date = datetime.fromisoformat(date).date()
+        else:
+            target_date = datetime.now().date()
+        
+        # Set date range for the specific day
+        start_dt = datetime.combine(target_date, datetime.min.time())
+        end_dt = datetime.combine(target_date, datetime.max.time())
+        
+        # Load zit data for the day
+        data_points = await storage.load(
+            source="zit",
+            start_date=start_dt,
+            end_date=end_dt
+        )
+        
+        # Create visualization
+        fig = await visualizer.create_zit_daily_breakdown(data_points, target_date)
+        
+        return HTMLResponse(visualizer.to_html(fig))
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/visualizations/zit/project-summary", response_class=HTMLResponse)
+async def zit_project_summary_visualization(
+    start_date: Optional[str] = Query(None, description="Start date (ISO format)"),
+    end_date: Optional[str] = Query(None, description="End date (ISO format)"),
+    days_back: Optional[int] = Query(30, description="Days back from today if no date range specified")
+):
+    """Generate project summary visualization for zit data."""
+    try:
+        # Parse dates or use default range
+        if start_date and end_date:
+            start_dt = datetime.fromisoformat(start_date)
+            end_dt = datetime.fromisoformat(end_date)
+        else:
+            end_dt = datetime.now()
+            start_dt = end_dt - timedelta(days=days_back)
+        
+        # Load zit data
+        data_points = await storage.load(
+            source="zit",
+            start_date=start_dt,
+            end_date=end_dt
+        )
+        
+        # Create visualization
+        fig = await visualizer.create_zit_project_summary(data_points)
         
         return HTMLResponse(visualizer.to_html(fig))
     
